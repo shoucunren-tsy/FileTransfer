@@ -27,7 +27,7 @@ A lightweight LAN-only file and clipboard transfer tool for phone ↔ PC. Start 
 
 ## 下载
 
-前往 [Releases](../../releases) 下载 Windows 安装包（MSI / NSIS）。
+前往 [Releases](https://github.com/shoucunren-tsy/FileTransfer/releases) 下载 Windows 安装包（MSI / NSIS）。
 
 > 安装包未做代码签名，Windows SmartScreen 可能提示「未知发布者」。这是未签名开源软件的常见现象，可点「更多信息 → 仍要运行」。
 
