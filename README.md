@@ -137,4 +137,4 @@ npm run tauri dev  # 开发模式运行桌面应用
 
 ## 许可证
 
-本项目以 [MIT License](LICENSE) 发布。原始版权归 RedStoneGuo 所有。
+本项目以 [MIT License](LICENSE) 发布。原始代码版权归 RedStoneGuo 所有，本版本新增与修改部分的版权归 Shoucunren and contributors 所有。
