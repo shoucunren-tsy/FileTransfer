@@ -37,6 +37,10 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # generate_context! 在编译期校验 frontendDist，必须先产出 dist 再跑 cargo 检查
+      - name: Build frontend
+        run: npm run build
+
       - name: Check formatting
         working-directory: src-tauri
         run: cargo fmt --all -- --check
@@ -48,9 +52,6 @@ jobs:
       - name: Run unit tests
         working-directory: src-tauri
         run: cargo test --features custom-protocol
-
-      - name: Build frontend
-        run: npm run build
 
       - name: Build application (no bundle)
         run: npm run tauri build -- --no-bundle
