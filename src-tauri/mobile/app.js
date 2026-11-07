@@ -9,6 +9,7 @@
   var pickPhotoBtn = $("pickPhotoBtn");
   var photoInput = $("photoInput");
   var uploadList = $("uploadList");
+  var progressList = $("progressList");
   var downloadList = $("downloadList");
   var clipArea = $("clipArea");
   var sendFilesBtn = $("sendFilesBtn");
@@ -21,6 +22,12 @@
   var session = params.get("session") || "";
   var ws = null;
   var reconnectDelay = 1000;
+  var heartbeatTimer = null;
+  var probeTimer = null;
+  var reconnectTimer = null;
+  var lastPong = 0;
+  // 达到设备上限 / 被新页面替换时停止重连，否则会被拒后无限重试
+  var fatal = false;
   var MAX_CHUNK = 512 * 1024;
   var transferProgress = {};   // id -> {name, size, received, parts: []}
   var uploadProgress = {};     // id -> {name, size, sent, itemEl, barEl, textEl}
@@ -31,40 +38,126 @@
     if (typeof renderQueue === "function") renderQueue();
   }
 
+  // 设备名只用于电脑端展示，从 UA 推断，识别不出时回退通用名
+  function deviceName() {
+    var ua = navigator.userAgent || "";
+    if (/iPad/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return "iPad";
+    if (/iPhone/i.test(ua)) return "iPhone";
+    var m = ua.match(/Android[^;)]*;\s*([^;)]+?)\s*(?:Build\/|\))/i);
+    if (m && m[1] && m[1].length <= 24) return "Android " + m[1].trim();
+    if (/Android/i.test(ua)) return "Android 设备";
+    if (/Windows/i.test(ua)) return "Windows 浏览器";
+    if (/Macintosh|Mac OS X/i.test(ua)) return "Mac 浏览器";
+    return "手机设备";
+  }
+
   function connect() {
+    if (fatal) return;
+    // 立刻重连时取消尚未触发的退避计时器，避免同时开出两条连接。
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = null;
     var proto = location.protocol === "https:" ? "wss://" : "ws://";
     var url = proto + location.host + "/ws?session=" + encodeURIComponent(session);
-    ws = new WebSocket(url);
+    var socket = new WebSocket(url);
+    ws = socket;
 
-    ws.onopen = function () {
+    // 旧 socket 的 close/error 可能在新连接建立后才到达，用实例比对避免误判。
+    socket.onopen = function () {
+      if (ws !== socket) return;
       setStatus("已连接", true);
       reconnectDelay = 1000;
+      lastPong = Date.now();
+      startHeartbeat();
       renderQueue();
-      send({ type: "hello", session: session });
+      send({ type: "hello", session: session, name: deviceName() });
     };
 
-    ws.onmessage = function (ev) {
+    socket.onmessage = function (ev) {
+      if (ws !== socket) return;
       var msg;
       try { msg = JSON.parse(ev.data); } catch (e) { return; }
       handleMessage(msg);
     };
 
-    ws.onclose = function () {
+    socket.onclose = function () {
+      if (ws !== socket) return;
+      stopHeartbeat();
+      if (fatal) return;
       setStatus("连接断开，重连中…", false);
       renderQueue();
       scheduleReconnect();
     };
 
-    ws.onerror = function () {
-      try { ws.close(); } catch (e) {}
+    socket.onerror = function () {
+      try { socket.close(); } catch (e) {}
     };
   }
 
   function scheduleReconnect() {
+    if (fatal) return;
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-    setTimeout(connect, reconnectDelay);
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(function () {
+      reconnectTimer = null;
+      connect();
+    }, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 2, 15000);
   }
+
+  // 熄屏/切后台时页面会被冻结，连接可能表面还开着、实际已经死了。
+  // 每 20 秒发一次应用层 ping，60 秒没有 pong 就主动重连。
+  function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(function () {
+      if (!isConnected()) return;
+      if (Date.now() - lastPong > 60000) {
+        forceReconnect();
+        return;
+      }
+      send({ type: "ping" });
+    }, 20000);
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+    if (probeTimer) clearTimeout(probeTimer);
+    probeTimer = null;
+  }
+
+  function forceReconnect() {
+    if (!session || fatal) return;
+    stopHeartbeat();
+    var old = ws;
+    ws = null;
+    if (old) { try { old.close(); } catch (e) {} }
+    reconnectDelay = 1000;
+    connect();
+  }
+
+  // 从熄屏/后台回来：没连上就立刻重连；还连着就先探测，5 秒无响应再重连。
+  function handleResume() {
+    if (document.hidden || !session || fatal) return;
+    if (ws && ws.readyState === WebSocket.CONNECTING) return;
+    if (!isConnected()) {
+      forceReconnect();
+      return;
+    }
+    lastPong = Date.now();
+    if (!send({ type: "ping" })) {
+      forceReconnect();
+      return;
+    }
+    if (probeTimer) clearTimeout(probeTimer);
+    probeTimer = setTimeout(function () {
+      probeTimer = null;
+      if (Date.now() - lastPong >= 5000) forceReconnect();
+    }, 5000);
+  }
+
+  document.addEventListener("visibilitychange", handleResume);
+  window.addEventListener("focus", handleResume);
+  window.addEventListener("online", handleResume);
 
   function send(obj) {
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -95,15 +188,44 @@
       case "file-complete":
         finishDownload(msg.id);
         break;
+      case "file-ack":
+        handleUploadAck(msg);
+        break;
       case "clipboard":
         showClipboard(msg.text);
         break;
       case "pong":
+        lastPong = Date.now();
+        if (probeTimer) {
+          clearTimeout(probeTimer);
+          probeTimer = null;
+        }
         break;
       case "error":
-        setStatus(msg.message || "发生错误", false);
+        if (msg.code === "device-cap" || msg.code === "device-replaced" || msg.code === "session-expired") {
+          enterFatal(msg.message || (msg.code === "device-cap"
+            ? "电脑端已连接满 5 台设备，请先在电脑端断开一台"
+            : msg.code === "session-expired"
+              ? "会话已失效，请重新扫码"
+              : "同一设备已在新页面连接，此页面已停止重连"));
+        } else {
+          setStatus(msg.message || "发生错误", false);
+        }
         break;
     }
+  }
+
+  // 终止态：不再重连，避免被拒后每秒重试刷屏
+  function enterFatal(text) {
+    fatal = true;
+    stopHeartbeat();
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    var old = ws;
+    ws = null;
+    if (old) { try { old.close(); } catch (e) {} }
+    setStatus(text, false);
+    showToast(text);
   }
 
   function estimateBytes(b64) {
@@ -126,6 +248,7 @@
       }
     } catch (e) {
       showToast("文件解码失败");
+      send({ type: "file-ack", id: id, status: "error", message: "手机端解码失败" });
       delete transferProgress[id];
       return;
     }
@@ -143,6 +266,42 @@
     addDownloadItem(name, total);
     delete transferProgress[id];
     send({ type: "file-ack", id: id, status: "ok" });
+  }
+
+  // 电脑确认接收结果：成功才真正标成完成，失败保留记录并提示原因
+  function handleUploadAck(msg) {
+    var p = uploadProgress[msg.id];
+    if (!p) return;
+    if (p.ackTimer) {
+      clearTimeout(p.ackTimer);
+      p.ackTimer = null;
+    }
+    if (msg.status === "ok") {
+      p.textEl.textContent = "已保存";
+      if (p.barEl.firstChild) p.barEl.firstChild.style.width = "100%";
+      setTimeout(function () {
+        dropUploadRow(msg.id);
+      }, 1200);
+    } else {
+      // 失败原因用 toast 说清，行只短暂停留，避免进度区越堆越多
+      p.textEl.textContent = "保存失败";
+      showToast(msg.message || "电脑保存失败");
+      setTimeout(function () {
+        dropUploadRow(msg.id);
+      }, 4000);
+    }
+  }
+
+  function dropUploadRow(id) {
+    var p = uploadProgress[id];
+    if (!p) return;
+    if (p.ackTimer) {
+      clearTimeout(p.ackTimer);
+      p.ackTimer = null;
+    }
+    p.barEl.remove();
+    p.itemEl.remove();
+    delete uploadProgress[id];
   }
 
   // 按扩展名给 MIME，让手机浏览器对图片/音视频/ PDF 走预览而不是纯下载
@@ -242,31 +401,39 @@
     p.itemEl.innerHTML = '<span class="file-name"></span><span class="muted"></span>';
     p.itemEl.querySelector(".file-name").textContent = file.name;
     p.itemEl.querySelector(".muted").appendChild(p.textEl);
-    uploadList.appendChild(p.itemEl);
+    // 进度区独立于待发送队列，避免 renderQueue 重绘时把进度条一起清掉
+    progressList.appendChild(p.itemEl);
     p.barEl.className = "progress";
     p.barEl.innerHTML = "<div></div>";
-    uploadList.appendChild(p.barEl);
+    progressList.appendChild(p.barEl);
 
     if (!send({ type: "file-meta", id: id, name: file.name, size: file.size })) {
       p.textEl.textContent = "连接断开";
-      return;
+      setTimeout(function () { dropUploadRow(id); }, 1000);
+      return false;
     }
-    await sendChunks(id, file, 0);
+    return sendChunks(id, file, 0);
   }
 
+  // 返回 false 表示传输中断（连接断开或读文件失败），调用方据此重新排队
   function sendChunks(id, file, offset) {
     if (offset >= file.size) {
-      send({ type: "file-complete", id: id });
       var p = uploadProgress[id];
-      if (p) {
-        p.textEl.textContent = "完成";
-        setTimeout(function () {
-          p.barEl.remove();
-          p.itemEl.remove();
-          delete uploadProgress[id];
-        }, 1200);
+      if (!send({ type: "file-complete", id: id })) {
+        if (p) p.textEl.textContent = "连接断开";
+        setTimeout(function () { dropUploadRow(id); }, 1000);
+        return Promise.resolve(false);
       }
-      return Promise.resolve();
+      if (p) {
+        // 真正的完成状态以电脑回传的 file-ack 为准，避免「发完就显示成功」
+        p.textEl.textContent = "等待电脑确认…";
+        p.ackTimer = setTimeout(function () {
+          if (!uploadProgress[id]) return;
+          dropUploadRow(id);
+          showToast("电脑未确认，请检查是否已保存");
+        }, 30000);
+      }
+      return Promise.resolve(true);
     }
     var slice = file.slice(offset, Math.min(offset + MAX_CHUNK, file.size));
     var reader = new FileReader();
@@ -281,7 +448,8 @@
       })) {
         var disconnected = uploadProgress[id];
         if (disconnected) disconnected.textEl.textContent = "连接断开";
-        resolve();
+        setTimeout(function () { dropUploadRow(id); }, 1000);
+        resolve(false);
         return;
       }
       var p = uploadProgress[id];
@@ -291,12 +459,15 @@
         p.barEl.firstChild.style.width = pct + "%";
         p.textEl.textContent = pct + "%";
       }
-      setTimeout(function () { sendChunks(id, file, offset + MAX_CHUNK).then(resolve); }, 0);
+      setTimeout(function () {
+        sendChunks(id, file, offset + MAX_CHUNK).then(resolve);
+      }, 0);
     };
     reader.onerror = function () {
       var p = uploadProgress[id];
       if (p) p.textEl.textContent = "读取失败";
-      resolve();
+      setTimeout(function () { dropUploadRow(id); }, 1000);
+      resolve(false);
     };
     reader.readAsDataURL(slice);
     });
@@ -346,15 +517,26 @@
   });
   sendFilesBtn.addEventListener("click", function () {
     if (!isConnected()) {
-      setStatus("连接断开，请重新扫码", false);
-      showToast("当前未连接电脑");
+      forceReconnect();
+      setStatus("正在重新连接，请稍候…", false);
+      showToast("连接恢复后请再点一次发送");
       return;
     }
     var files = pendingFiles.slice();
     pendingFiles = [];
     renderQueue();
     (async function () {
-      for (var i = 0; i < files.length; i++) await uploadFile(files[i]);
+      for (var i = 0; i < files.length; i++) {
+        var ok = await uploadFile(files[i]);
+        if (!ok) {
+          // 断网时把当前及未发的文件放回队列，重连后用户再点发送即可续传（重传整份）
+          var rest = files.slice(i);
+          pendingFiles = rest.concat(pendingFiles);
+          renderQueue();
+          showToast("连接断开，已重新排队 " + rest.length + " 个文件");
+          return;
+        }
+      }
     })();
   });
   clearFilesBtn.addEventListener("click", function () {
@@ -362,7 +544,10 @@
     renderQueue();
   });
   $("getClipBtn").addEventListener("click", function () {
-    if (!send({ type: "clipboard-request" })) showToast("当前未连接电脑");
+    if (!send({ type: "clipboard-request" })) {
+      forceReconnect();
+      showToast("正在重连，请稍候再试");
+    }
   });
   $("sendClipBtn").addEventListener("click", function () {
     var text = $("clipInput").value;
@@ -371,8 +556,9 @@
       return;
     }
     if (!send({ type: "clipboard", text: text })) {
-      setStatus("连接断开，请重新扫码", false);
-      showToast("当前未连接电脑");
+      forceReconnect();
+      setStatus("正在重新连接，请稍候…", false);
+      showToast("连接恢复后请再点一次发送");
       return;
     }
     showToast("已发送到电脑");

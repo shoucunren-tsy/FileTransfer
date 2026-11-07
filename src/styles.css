@@ -93,6 +93,51 @@ main {
 
 #qrHint { color: var(--muted); font-size: 12px; line-height: 1.6; word-break: break-all; }
 
+/* 已连接设备卡片：每台一行，复选框决定发送目标 */
+#deviceCount {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.device-list { display: flex; flex-direction: column; }
+.device-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.device-item:last-child { border-bottom: none; }
+.device-item input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.device-name {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-ip {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.device-item button { flex-shrink: 0; }
+
+.file-source { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+/* 一行文件发往多台设备时，每台设备一条状态 */
+.send-targets { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
+.target-status { font-size: 12px; color: var(--muted); }
+.target-status.ok { color: var(--ok); }
+.target-status.err { color: var(--danger); }
+
 .addr-row {
   display: flex;
   align-items: center;

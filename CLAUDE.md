@@ -21,7 +21,7 @@
 
 ## 构建与部署
 
-构建脚本在仓库外面：`D:\Software\claude-packages\FileTransfer_App\`
+构建脚本放在仓库外（不随仓库发布），本机位于项目父目录。
 
 ```bash
 _build_patch.cmd        # 编译（见下方两条必须遵守的约束）
@@ -32,8 +32,8 @@ _shot_pid.ps1 -TargetPid <pid> -Out <png>   # 截图验证
 1. **`--features custom-protocol` 不能省。** 少了它 exe 会被打成开发模式，WebView 去拉不存在的 `http://localhost:1420`，界面直接显示 `ERR_CONNECTION_REFUSED`。`cargo build --release` 不会自动带这个 feature。
 2. **必须显式指定 MSVC toolchain**：`cargo +stable-x86_64-pc-windows-msvc build --release --features custom-protocol`（rustup 默认是 gnu）。
 
-部署目标是 `C:\Users\19697\AppData\Local\Programs\FileTransfer\drop-app.exe`（用户实际在用的那份）。
-`C:\Program Files\FileTransfer\` 是安装器装的原版，**不要动**。
+部署目标是用户实际运行的那份安装（默认在 `%LOCALAPPDATA%\Programs\FileTransfer\`）。
+如果是安装器装的另一份（默认在 `%ProgramFiles%\FileTransfer\`），**不要动**。
 
 ## 验证
 
@@ -43,6 +43,6 @@ _shot_pid.ps1 -TargetPid <pid> -Out <png>   # 截图验证
 
 - 程序数据在 `%APPDATA%\drop-app\`（`settings.json` 存 `download_dir`）。
 - 传输链路是 `readAsDataURL` → base64 → 服务端逐字节写盘，**字节级无损**，别引入会改字节的处理。
-- 临时脚本、截图等中间产物放 `D:\Software\claude-packages\FileTransfer_App\`，**不要丢进源码仓库**。
+- 临时脚本、截图等中间产物放项目父目录，**不要丢进源码仓库**。
 - 删除任何文件/目录一律走回收站，禁止 `rm`、`shutil.rmtree()` 这类永久删除。
 - git-bash 里调 `cmd /c` 会被 MSYS 路径转换搞坏 → 用 `MSYS_NO_PATHCONV=1` 或直接 `powershell -File`。

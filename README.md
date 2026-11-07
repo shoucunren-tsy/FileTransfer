@@ -1,143 +1,140 @@
-# 文件互传 — 跨平台文件传输助手
+# 文件互传 · FileTransfer
 
-一个轻量级桌面应用（macOS / Windows），让手机扫码后与电脑在同一局域网内互传文件和剪贴板内容，类似微信“文件传输助手”，但数据只在你自己的设备之间流动。
+A lightweight LAN-only file and clipboard transfer tool for phone ↔ PC. Start the desktop app, scan the QR code with your phone, and send files or clipboard content over your local network — no account, no cloud, no mobile app.
+
+这是一个局域网内的手机 ↔ 电脑互传工具：电脑端显示二维码，手机扫码打开网页即可传文件、传照片、同步剪贴板。数据只在同一局域网内流动，不经过任何服务器。
+
+> 本项目是 [RedStoneGuo/Drop_App](https://github.com/RedStoneGuo/Drop_App)（MIT）的衍生版本，在其基础上修复了传输可靠性问题并做了安全加固。
 
 ## 功能
 
-- **扫码连接**：启动后界面显示二维码，手机扫码即可打开连接页并自动连接（无需安装手机 App）
-- **电脑 → 手机**：选择本地文件（支持多选），分块通过 WebSocket 发送，手机浏览器直接下载
-- **拖拽发送**：可将一个或多个文件直接拖入“发送文件到手机”区域，再点击发送
-- **手机 → 电脑**：手机网页选择文件上传，电脑自动保存到指定目录（macOS 默认 `~/Library/Application Support/drop-app/received`，Windows 默认 `%APPDATA%\\drop-app\\received`，可在界面更改）
-- **剪贴板双向同步**：电脑一键把剪贴板文本发到手机；手机也可把文本发到电脑并一键写入系统剪贴板
-- **传输进度**：发送/接收均显示百分比进度
-- **断线重连**：手机端自动重连（指数退避），电脑端实时显示连接状态
-- **错误日志**：使用 Tauri log 插件记录到日志目录，界面提供日志面板
-- **Windows 自动放行**：MSI 安装包自动放行本地子网访问 TCP 8080-8099，并清理旧版无效规则；默认端口被占用时自动顺延并显示实际端口
+- **扫码连接**：启动后显示二维码，手机扫码即用，无需安装手机 App
+- **电脑 → 手机**：选择或拖入文件，分块传输，手机浏览器直接下载
+- **手机 → 电脑**：手机网页选择文件上传，自动保存到指定目录
+- **原图传输**：照片按原始字节传输，**不做任何压缩、缩放或转码**
+- **剪贴板双向同步**：文本和图片双向发送；文字支持边打边同步
+- **传输确认**：电脑保存成功/失败会回传手机，不再「发完就显示成功」
+- **传输进度**：双向显示百分比进度
+- **断线重连**：手机端指数退避自动重连
+- **多设备并发**：同一台电脑最多同时连接 5 台手机/平板，可逐台勾选发送目标、单独断开；收发与剪贴板按设备隔离
+- **日志面板**：桌面端可直接查看最近运行日志
+- **单实例运行**：重复启动只会激活已有窗口，避免端口冲突
+- **端口自动顺延**：8080 被占用时自动尝试 8081–8099，二维码始终显示真实端口
+
+## 截图
+
+![桌面端](docs/screenshots/desktop.png)
 
 ## 下载
-前往[release页面](https://github.com/RedStoneGuo/Drop_App/releases)进行安装包下载
 
-## 技术栈
+前往 [Releases](../../releases) 下载 Windows 安装包（MSI / NSIS）。
 
-- **框架**：Tauri 2（Rust 后端 + 原生 WebView 前端，Vanilla JS，无前端框架、无打包器）
-- **通信**：Rust 内置 WebSocket 服务（监听 `0.0.0.0:8080`），手机浏览器直连
-- **二维码**：内嵌 MIT 协议 [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)，不依赖第三方服务
-- **剪贴板**：`tauri-plugin-clipboard-manager`
+> 安装包未做代码签名，Windows SmartScreen 可能提示「未知发布者」。这是未签名开源软件的常见现象，可点「更多信息 → 仍要运行」。
 
-## 目录结构
+## 从源码构建
 
-```
-Drop_App/
-├── src/                  # 桌面端前端（纯 HTML/CSS/JS，ES Module）
-│   ├── index.html
-│   ├── main.js           # 桌面端逻辑（二维码、发送/接收、剪贴板）
-│   ├── styles.css
-│   └── qrcode.js         # 二维码生成库（MIT）
-├── src-tauri/            # Rust 后端
-│   ├── src/
-│   │   ├── lib.rs        # 应用入口、插件注册、命令注册
-│   │   ├── server.rs     # WebSocket/HTTP 服务、会话校验、消息转发
-│   │   ├── files.rs      # 文件分块读取/写入、目录选择、落盘
-│   │   ├── session.rs    # 会话 ID 生成、局域网 IP 探测
-│   │   └── state.rs      # 共享状态（连接、传输、保存目录）
-│   ├── mobile/           # 手机端网页（内嵌到二进制，扫码打开）
-│   │   ├── index.html
-│   │   ├── app.js        # 连接、上传/下载、剪贴板
-│   │   └── qrcode.js
-│   ├── capabilities/     # Tauri 权限声明
-│   └── tauri.conf.json
-└── scripts/              # 零依赖开发服务器与构建脚本
-```
+### 环境要求
 
-## 环境要求
+**Windows**
+- Windows 10/11（系统自带 WebView2）
+- Rust stable **MSVC** 工具链
+- Visual Studio Build Tools 2022，勾选「使用 C++ 的桌面开发」
+- Node.js 18+
 
-### Windows
-
-- Windows 10/11（自带 WebView2 运行时）
-- [Rust 工具链](https://rustup.rs)（`stable-msvc`）
-- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/zh-hans/downloads/)（勾选“使用 C++ 的桌面开发”），提供 MSVC 链接器
-- Node.js 18+（仅用于运行构建脚本，本项目无 npm 运行时依赖）
-
-### macOS
-
+**macOS**
 - macOS 12+
 - Xcode Command Line Tools（`xcode-select --install`）
-- Rust 工具链
+- Rust stable
 - Node.js 18+
-- 首次启动时，在 macOS“系统设置 → 隐私与安全性 → 本地网络”中允许 Drop App 访问本地网络
 
-首次构建前安装依赖：
+### 构建步骤
 
 ```bash
-rustup target add aarch64-apple-darwin
 npm install
-```
-
-## 开发运行
-
-```bash
-npm run dev       # 启动前端静态服务器（http://localhost:1420）
-npm run tauri dev # 以开发模式运行桌面应用
-```
-
-macOS 快捷命令：
-
-```bash
-npm run mac:dev    # macOS 开发运行
-npm run mac:build  # 生成 .app 与 .dmg
-```
-
-若需在 Apple Silicon Mac 上同时生成 Intel 版本，可先安装目标：
-
-```bash
-rustup target add x86_64-apple-darwin
-npm run tauri build -- --target x86_64-apple-darwin --bundles app,dmg
-```
-
-## 打包安装包
-
-```bash
 npm run tauri build
 ```
 
-- Windows 产物：`src-tauri/target/release/bundle/msi/*.msi`
-- macOS 产物：`src-tauri/target/release/bundle/macos/*.app` 与 `src-tauri/target/release/bundle/dmg/*.dmg`（需在 macOS 上构建）
+Windows 产物：`src-tauri/target/release/bundle/msi/`、`nsis/`
+macOS 产物：`src-tauri/target/release/bundle/macos/`、`dmg/`
 
-## 使用方法
+> **重要**：请用 `npm run tauri build` 构建。它会自动带上 `custom-protocol` feature；直接 `cargo build --release` 会把程序打成开发模式，运行时界面显示 `ERR_CONNECTION_REFUSED`。
+>
+> Windows 必须使用 MSVC 工具链：`rustup toolchain install stable-x86_64-pc-windows-msvc`。
 
-1. 启动 Drop App，界面左侧显示二维码和地址（如 `http://192.168.1.5:8080/?session=xxxx`）
-2. 手机与电脑连接同一 Wi-Fi/局域网，用手机相机或任意扫码工具扫描二维码
-3. 手机浏览器打开页面后自动连接，电脑右上角显示“已连接设备”
+### 开发运行
+
+```bash
+npm run dev        # 前端静态服务器 http://localhost:1420
+npm run tauri dev  # 开发模式运行桌面应用
+```
+
+## 使用说明
+
+1. 启动 FileTransfer，左侧显示二维码和地址（如 `http://192.168.1.5:8080/?session=xxxx`）
+2. 手机与电脑连接同一 Wi-Fi / 局域网，扫码打开网页
+3. 手机页面自动连接，电脑右上角显示「已连接设备」
 4. 传文件：
-   - 电脑 → 手机：点击“选择文件”（可多选）→“发送所选文件”，手机端自动开始下载
-   - 手机 → 电脑：手机页面点“选择文件”，文件会自动保存到电脑保存目录
-5. 剪贴板：
-   - 电脑 → 手机：点击“读取剪贴板”后再点“发送剪贴板到手机”（或直接点发送）
-   - 手机 → 电脑：手机页面点“获取电脑剪贴板”查看电脑内容；手机网页可粘贴文本后，电脑端会收到并支持一键写入系统剪贴板
-6. 连接异常时，手机页面会自动重连；也可在电脑端点“更换会话”生成新二维码
+   - 电脑 → 手机：选择文件或拖入列表 → 「发送所选文件」
+   - 手机 → 电脑：点「传照片 / 视频」或「传其他文件」→ 「发送到电脑」
+5. 多台设备：在左侧「已连接设备」勾选要发送的目标，未勾选时不会发送；可单台「断开」
+6. 剪贴板：电脑端可读取系统剪贴板发送，也可直接输入文字；手机端可获取电脑剪贴板或粘贴内容发回
+7. 连接异常时手机端自动重连；电脑端可点「更换会话」使旧二维码立即失效（所有设备下线）
 
-> 若手机扫码无法连接，请确认手机与电脑在同一局域网；Windows MSI 会自动放行本地子网访问 TCP 8080-8099；更新旧版本时请重新运行最新版 MSI 完成防火墙规则升级。
+> 手机打不开页面时：确认同一局域网；关闭 VPN、访客 Wi-Fi 和路由器的 AP 隔离；Windows 上允许防火墙放行 TCP 8080–8099。
 
-## 安全设计
+## 架构
 
-- WebSocket 服务仅监听局域网接口（`0.0.0.0` 以支持局域网访问），不做公网映射；会话 ID 随机生成（12 位字母数字），每次启动和点击“更换会话”都会更新
-- 手机页面与 WebSocket 均校验会话 ID，无效会话返回 403 或直接断开
-- 文件读取仅限用户通过原生文件对话框选择的路径；保存目录默认为系统应用数据目录下的 `drop-app/received`，也可由用户显式指定
-- 剪贴板权限在 `capabilities/default.json` 中显式声明
-- 单个文件上限 5 GiB；接收端做文件名清洗与字节数校验，防止路径穿越与超限写入
+```
+├── src/                     # 桌面端前端（原生 HTML/CSS/JS，无框架、无打包器）
+├── dist/                    # 构建产物（npm run build 由 src 生成，不入库）
+├── src-tauri/
+│   ├── src/
+│   │   ├── lib.rs           # 应用入口、插件与命令注册
+│   │   ├── server.rs        # warp HTTP/WebSocket 服务、会话校验、消息转发
+│   │   ├── files.rs         # 分块收发、落盘、目录选择、日志读取
+│   │   ├── session.rs       # 会话 ID、局域网 IP 探测
+│   │   └── state.rs         # 共享状态、传输状态、路径授权
+│   ├── mobile/              # 手机端网页，编译期内嵌进二进制
+│   └── tauri.conf.json
+├── scripts/                 # 零依赖构建与开发服务器
+└── docs/screenshots/        # 截图
+```
 
-## 常见问题
+传输协议：WebSocket 文本帧 + JSON。文件按 512 KiB 分块、Base64 编码后传输；手机 → 电脑方向带分块序号校验，接收端按声明大小校验字节数后才落盘。
 
-**扫码后手机打不开页面**：确认手机与电脑在同一局域网；macOS 请在“隐私与安全性 → 本地网络”允许 Drop App；Windows 安装版（MSI）会自动放行 TCP 8080-8099；若使用源码/开发模式运行，请以管理员身份放行 TCP 8080-8099。若使用 VPN、访客 Wi-Fi 或路由器开启 AP 隔离，请先关闭后重试；也可尝试在手机浏览器地址栏手动输入电脑 IP。
+## 安全模型与威胁边界
 
-**电脑 IP 显示 127.0.0.1**：说明未探测到局域网网卡。应用会优先使用默认路由对应的网卡，并自动跳过 Hyper-V/WSL/VMware/VPN 等虚拟网卡；若仍显示 127.0.0.1，请确认已连接 Wi-Fi 或有线网络。
+- **仅局域网**：服务监听 `0.0.0.0`，供同一局域网访问；不做公网映射、不依赖云服务
+- **会话即凭证**：12 位随机会话 ID 同时用于页面访问和 WebSocket 握手；每次启动、点击「更换会话」都会更新。拿到完整二维码链接的人即可连接
+- **明文传输**：HTTP / WS 未加密。**请勿在公共 / 不可信 Wi-Fi 使用**，同网段的其他设备理论上可以嗅探流量
+- **多设备上限**：同一时间最多接受 5 台设备，超出会被明确拒绝；同一 IP + 同名设备视为重连，新页面会替换旧页面
+- **最小文件权限**：电脑端只读取用户通过文件对话框或拖拽明确选择的路径；接收端清洗文件名、限制 5 GiB、校验分块顺序与总字节数
+- **WebView 加固**：桌面端启用 CSP；手机页面带 `nosniff`、`no-referrer`、`no-store` 与 CSP 响应头
+- **剪贴板限制**：文本单次上限 1 MiB，图片写入系统临时目录并在 10 分钟后清理
 
-**手机能打开页面但连接不上 / 提示端口被占用**：应用启动时会从 8080 开始自动顺延尝试可用端口，界面与二维码显示的就是实际监听端口；若仍无法连接，请检查路由器是否开启了 AP 隔离（同一 Wi-Fi 下设备互访限制）。
+## 已知限制
 
-**大文件传输较慢**：当前实现为 base64 分块 + JSON 文本帧，适合日常文件（几十 MB 以内）；超大文件建议压缩后再传。
+- **手机锁屏/切后台会中断连接**：系统可能冻结网页并挂起网络，网页无法阻止。解锁返回后会自动重连（通常 1–3 秒），无需重新扫码；锁屏期间正在进行的传输会失败，需重新发送
+- **大文件受手机内存限制**：电脑 → 手机方向在手机端用 Blob 拼接，数百 MB 以上可能失败；建议日常传输控制在几十 MB 内
+- Base64 编码带来约 33% 的传输开销
+- 无断点续传；传输中断需重新发送
+- 同一时间最多 5 台设备；发送大文件时按设备串行，不并行广播
+- 传输过程中关闭程序可能留下 `.part` 临时文件，下次启动自动清理
+- 未签名安装包可能触发 SmartScreen 提示
+- Windows 防火墙规则为尽力而为：便携运行时若没有管理员权限，需要手动放行端口
 
-**日志在哪里**：Windows 为 `%APPDATA%\com.dropapp.desktop\logs\`，macOS 为 `~/Library/Logs/com.dropapp.desktop/`。
+## 路线图
+
+- [ ] 流式下载，解除手机内存限制
+- [ ] 断点续传
+- [x] 多设备并发（0.2.0 已实现，上限 5 台）
+- [ ] 可选的局域网加密（如基于一次性口令的 TLS）
+
+## 项目来源与致谢
+
+- 上游项目：[RedStoneGuo/Drop_App](https://github.com/RedStoneGuo/Drop_App)（MIT License）
+- 二维码生成：[qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)，作者 Kazuhiko Arase（MIT License）
 
 ## 许可证
 
-本项目代码以 MIT 许可证发布。二维码生成库版权归 Kazuhiko Arase，MIT 许可。
+本项目以 [MIT License](LICENSE) 发布。原始版权归 RedStoneGuo 所有。

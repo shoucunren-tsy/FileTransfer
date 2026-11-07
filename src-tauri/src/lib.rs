@@ -17,7 +17,19 @@ pub const PHONE_EVENT: &str = "phone://message";
 pub const PHONE_STATUS_EVENT: &str = "phone://status";
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // 单实例必须最先注册：重复启动时激活已有窗口，避免两套服务各占一个端口。
+    // macOS 上需要 tauri 的 macos-private-api 特性，故该平台暂不启用。
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+
+    builder
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -51,6 +63,7 @@ pub fn run() {
             session::get_session_info,
             session::rotate_session,
             server::send_to_phone,
+            server::disconnect_device,
             files::read_file_chunk,
             files::get_file_size,
             files::pick_files,
@@ -60,6 +73,7 @@ pub fn run() {
             files::reveal_path,
             files::receive_file_chunk,
             files::finalize_receive,
+            files::get_recent_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -72,7 +86,10 @@ fn ensure_windows_firewall_rule() {
 
     let existing = Command::new("netsh")
         .args([
-            "advfirewall", "firewall", "show", "rule",
+            "advfirewall",
+            "firewall",
+            "show",
+            "rule",
             "name=FileTransfer Local Network",
         ])
         .output();
@@ -83,7 +100,10 @@ fn ensure_windows_firewall_rule() {
 
     let add = Command::new("netsh")
         .args([
-            "advfirewall", "firewall", "add", "rule",
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
             "name=FileTransfer Local Network",
             "dir=in",
             "action=allow",

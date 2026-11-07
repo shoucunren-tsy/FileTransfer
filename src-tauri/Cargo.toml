@@ -1,6 +1,6 @@
 [package]
 name = "drop-app"
-version = "0.1.1"
+version = "0.2.0"
 description = "跨平台桌面文件传输助手"
 authors = ["Drop App Contributors"]
 edition = "2021"
@@ -32,7 +32,25 @@ log = "0.4"
 warp = { version = "0.4", features = ["server", "websocket"] }
 rfd = "0.15"
 
+# macOS 上该插件需要 tauri 的 macos-private-api 特性，故只在其他平台启用。
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+# 用于读取网卡默认网关，区分物理网卡与虚拟网卡。
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = [
+    "Win32_Foundation",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
+    "Win32_Networking_WinSock",
+] }
+
 [features]
 # 生产构建必须开这个 feature。缺了它 tauri 会把 exe 打成"开发模式"，
 # 运行时去访问 devUrl(localhost:1420) 而不是内嵌的 dist/，界面直接 ERR_CONNECTION_REFUSED。
 custom-protocol = ["tauri/custom-protocol"]
+
+[lints.rust]
+# MSVC 链接器会向 stdout 打印本地化信息，稳定版 rustc 默认对此告警；
+# CI 用 `-D warnings`，这里显式放行，避免本地化输出导致构建失败。
+linker_messages = "allow"

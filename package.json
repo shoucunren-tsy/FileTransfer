@@ -1,7 +1,7 @@
 {
   "name": "drop-app",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "跨平台桌面文件传输助手（类似微信文件传输助手）",
   "scripts": {

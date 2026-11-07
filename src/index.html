@@ -29,6 +29,13 @@
           <div class="meta-line" id="sessionId"></div>
         </section>
 
+        <section class="card" id="deviceCard">
+          <h2>已连接设备 <span id="deviceCount">0/5</span></h2>
+          <div class="device-list" id="deviceList">
+            <div class="empty">等待扫码连接</div>
+          </div>
+        </section>
+
         <section class="card received-card">
           <h2>已接收文件</h2>
           <div class="meta-line" id="saveDir"></div>
@@ -71,6 +78,7 @@
           <div class="sync-status" id="syncStatus"></div>
           <div class="incoming-clip">
             <h2>手机发来的剪贴板</h2>
+            <div class="meta-line" id="phoneClipSource"></div>
             <div class="clip-display" id="phoneClipText">暂无内容</div>
             <button class="secondary" id="copyClipBtn" style="display:none">写入电脑剪贴板</button>
           </div>
