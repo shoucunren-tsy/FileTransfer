@@ -44,10 +44,16 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "FileTransfer ${{ github.ref_name }}"
           releaseBody: |
-            下载下方 `*.msi` 或 `*-setup.exe` 安装。
+            ## 下载
 
-            安装包未做代码签名，Windows SmartScreen 可能提示「未知发布者」，
-            可点「更多信息 → 仍要运行」。
+            - **一般用户**：下载 `*-setup.exe`（NSIS 安装包）
+            - **企业部署 / 标准安装**：下载 `*.msi`（MSI 安装包）
+
+            ## 说明
+
+            - 仅支持 Windows 10/11（系统自带 WebView2），本次未提供 macOS 安装包
+            - 安装包未做代码签名，Windows SmartScreen 可能提示「未知发布者」：点「更多信息 → 仍要运行」即可
+            - 本次改动详见 [CHANGELOG](https://github.com/shoucunren-tsy/FileTransfer/blob/main/CHANGELOG.md)
           releaseDraft: true
           prerelease: false
           args: --target x86_64-pc-windows-msvc
