@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>文件互传</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>文件互传</h1>
+        <div class="sub" id="serverAddr">正在获取地址…</div>
+      </div>
+      <div class="status-pill offline" id="statusPill">
+        <span class="dot"></span><span class="status-label">等待扫码连接</span>
+      </div>
+    </header>
+
+    <main>
+      <div class="left-col">
+        <section class="card" id="qrBox">
+          <h2>手机扫码连接</h2>
+          <img id="qrImg" alt="二维码" />
+          <div id="qrHint"></div>
+          <div class="addr-row">
+            <button class="secondary small" id="rotateBtn">更换会话</button>
+          </div>
+          <div class="meta-line" id="sessionId"></div>
+        </section>
+
+        <section class="card received-card">
+          <h2>已接收文件</h2>
+          <div class="meta-line" id="saveDir"></div>
+          <div class="btn-row">
+            <button class="secondary small" id="openDirBtn">📂 打开文件夹</button>
+            <button class="secondary small" id="changeDirBtn">更改目录</button>
+          </div>
+          <div class="file-list" id="receivedDone">
+            <div class="empty">还没有收到手机文件</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="right-col">
+        <section class="card">
+          <h2>发送文件到手机</h2>
+          <div class="clip-row file-actions">
+            <button id="pickFilesBtn">选择文件</button>
+            <button id="sendSelectedBtn" disabled>发送所选文件</button>
+          </div>
+          <div class="file-drop-zone" id="fileDropZone">
+            <div class="drop-hint">也可以将文件拖到这里</div>
+          </div>
+          <div class="file-list" id="sendList">
+            <div class="empty">点击“选择文件”，多选后发送</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>剪贴板</h2>
+          <div class="clip-row">
+            <button class="secondary" id="refreshClipBtn">读取剪贴板</button>
+            <button id="sendClipBtn">发送到手机</button>
+          </div>
+          <div class="clip-preview" id="clipPreview" style="display:none">
+            <img id="clipPreviewImg" alt="剪贴板图片" />
+            <div class="clip-preview-meta" id="clipPreviewMeta">剪贴板里是图片，点「发送到手机」即可发送</div>
+          </div>
+          <textarea id="clipText" placeholder="在这里输入文字，按 Enter 发送到手机（Shift+Enter 换行）；留空点发送＝发系统剪贴板"></textarea>
+          <div class="sync-status" id="syncStatus"></div>
+          <div class="incoming-clip">
+            <h2>手机发来的剪贴板</h2>
+            <div class="clip-display" id="phoneClipText">暂无内容</div>
+            <button class="secondary" id="copyClipBtn" style="display:none">写入电脑剪贴板</button>
+          </div>
+        </section>
+
+        <section class="card log-panel">
+          <h2>日志 <button class="secondary small" id="refreshLogBtn">刷新</button></h2>
+          <pre id="logText">暂无日志</pre>
+        </section>
+      </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

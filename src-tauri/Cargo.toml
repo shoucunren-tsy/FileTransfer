@@ -1,0 +1,38 @@
+[package]
+name = "drop-app"
+version = "0.1.1"
+description = "跨平台桌面文件传输助手"
+authors = ["Drop App Contributors"]
+edition = "2021"
+
+[lib]
+name = "drop_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-log = "2"
+tauri-plugin-clipboard-manager = "2"
+arboard = "3.6"
+png = "0.18"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.24"
+base64 = "0.22"
+rand = "0.8"
+dirs = "5"
+get_if_addrs = "0.5"
+futures-util = "0.3"
+http = "1"
+log = "0.4"
+warp = { version = "0.4", features = ["server", "websocket"] }
+rfd = "0.15"
+
+[features]
+# 生产构建必须开这个 feature。缺了它 tauri 会把 exe 打成"开发模式"，
+# 运行时去访问 devUrl(localhost:1420) 而不是内嵌的 dist/，界面直接 ERR_CONNECTION_REFUSED。
+custom-protocol = ["tauri/custom-protocol"]

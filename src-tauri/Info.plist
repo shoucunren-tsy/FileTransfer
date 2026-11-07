@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>FileTransfer</string>
+    <key>CFBundleName</key>
+    <string>FileTransfer</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>文件互传需要访问本地网络，以便与同一局域网内的手机传输文件和剪贴板内容。</string>
+</dict>
+</plist>

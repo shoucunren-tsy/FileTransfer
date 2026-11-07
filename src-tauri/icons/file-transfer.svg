@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D9F4FF"/>
+      <stop offset="1" stop-color="#9BD8F3"/>
+    </linearGradient>
+    <linearGradient id="phone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF8E7"/>
+      <stop offset="1" stop-color="#F8D894"/>
+    </linearGradient>
+  </defs>
+  <rect x="52" y="52" width="920" height="920" rx="196" fill="#FFFDF8" stroke="#263A54" stroke-width="28"/>
+  <rect x="154" y="208" width="600" height="388" rx="32" fill="#FFFDF8" stroke="#263A54" stroke-width="26"/>
+  <rect x="190" y="244" width="528" height="316" rx="16" fill="url(#screen)" stroke="#263A54" stroke-width="18"/>
+  <path d="M218 523h472l-102-117-103 76-83-103-184 144z" fill="#FFF8E7" stroke="#263A54" stroke-width="18" stroke-linejoin="round"/>
+  <circle cx="625" cy="315" r="32" fill="#FFD461" stroke="#263A54" stroke-width="16"/>
+  <rect x="650" y="318" width="192" height="330" rx="38" fill="url(#phone)" stroke="#263A54" stroke-width="24"/>
+  <rect x="686" y="368" width="120" height="204" rx="16" fill="#FFFDF8" stroke="#263A54" stroke-width="16"/>
+  <circle cx="746" cy="608" r="12" fill="#263A54"/>
+  <path d="M126 701h772" stroke="#263A54" stroke-width="28" stroke-linecap="round"/>
+  <path d="M392 782c53-44 109-65 169-62 49 2 93 20 131 53" fill="none" stroke="#F06D5B" stroke-width="32" stroke-linecap="round"/>
+  <path d="m674 749 28 24-30 25" fill="none" stroke="#F06D5B" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M635 848c-53 40-109 58-167 53-44-3-83-20-117-50" fill="none" stroke="#4EAF83" stroke-width="32" stroke-linecap="round"/>
+  <path d="m368 827-28 24 29 25" fill="none" stroke="#4EAF83" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

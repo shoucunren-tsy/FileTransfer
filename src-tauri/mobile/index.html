@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>文件互传</title>
+  <style>
+    :root {
+      --bg: #f5f6fa;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --danger: #dc2626;
+      --ok: #16a34a;
+      --text: #1f2937;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px 14px 40px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    h1 { font-size: 20px; margin: 2px 0 4px; }
+    h2 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #fee2e2;
+      color: var(--danger);
+    }
+    .status.ok { background: #dcfce7; color: var(--ok); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .45; }
+    button.ghost { background: #eef2ff; color: var(--primary); }
+    .muted { color: var(--muted); font-size: 13px; }
+    .progress {
+      height: 8px;
+      border-radius: 4px;
+      background: #e5e7eb;
+      overflow: hidden;
+      margin: 8px 0 4px;
+    }
+    .progress > div { height: 100%; width: 0; background: var(--primary); transition: width .2s; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+    .file-item:last-child { border-bottom: none; }
+    .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    .clip-text {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 10px;
+      margin: 8px 0;
+      font-size: 14px;
+      max-height: 180px;
+      overflow: auto;
+    }
+    .empty { text-align: center; color: var(--muted); padding: 18px 0; font-size: 14px; }
+    .scan-button { width: 100%; margin-top: 10px; }
+    .queue-actions { margin-top: 12px; }
+    #scanner { display: none; position: fixed; inset: 0; z-index: 20; background: #111827; padding: 18px; }
+    #scanner video { width: 100%; max-height: 80vh; object-fit: cover; border-radius: 14px; }
+    #scanner button { width: 100%; margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="row">
+      <h1>文件互传</h1>
+      <span id="status" class="status"><span class="dot"></span>连接中…</span>
+    </div>
+    <p class="muted" id="serverInfo"></p>
+  </div>
+
+  <div class="card">
+    <h2>发文件到电脑</h2>
+    <input type="file" id="fileInput" multiple hidden />
+    <!-- accept 决定安卓唤起哪个选择器：有 image/* 才会打开系统相册，否则只开文件管理器 -->
+    <input type="file" id="photoInput" accept="image/*,video/*" multiple hidden />
+    <div class="row">
+      <button id="pickPhotoBtn">传照片 / 视频</button>
+      <button class="ghost" id="pickBtn">传其他文件</button>
+    </div>
+    <p class="muted" id="pickHint" style="margin:8px 0 0">支持多选，可分批添加</p>
+    <div id="uploadList"></div>
+    <div class="row queue-actions">
+      <button id="sendFilesBtn" disabled>发送到电脑</button>
+      <button class="ghost" id="clearFilesBtn" disabled>清空队列</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>电脑发来的文件</h2>
+    <div id="downloadList"><div class="empty">还没有收到文件</div></div>
+  </div>
+
+  <div class="card">
+    <h2>剪贴板</h2>
+    <div class="row">
+      <button class="ghost" id="getClipBtn">获取电脑剪贴板</button>
+    </div>
+    <div id="clipArea"><div class="empty">暂无内容</div></div>
+    <textarea id="clipInput" placeholder="粘贴要发送到电脑的内容…"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="sendClipBtn">发送到电脑</button>
+    </div>
+  </div>
+
+  <div id="scanner">
+    <video id="scannerVideo" autoplay playsinline></video>
+    <button class="ghost" id="closeScannerBtn">关闭扫码</button>
+  </div>
+
+  <div class="card">
+    <button class="ghost scan-button" id="scanBtn">相机扫描新二维码</button>
+  </div>
+
+  <script src="/qrcode.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
